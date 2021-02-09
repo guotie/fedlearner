@@ -124,6 +124,8 @@ def initialize_job_apis(api):
                      '/pods/<string:pod_name>/log')
     api.add_resource(JobLogApi,
                      '/jobs/<string:job_name>/log')
+    api.add_resource(JobMetricsApi,
+                     '/jobs/<int:job_id>/metrics')
     api.add_resource(PodContainerApi,
                      '/jobs/<int:job_id>/pods/<string:pod_name>/container')
     api.add_resource(JobMetricsApi,
