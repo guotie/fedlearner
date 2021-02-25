@@ -40,6 +40,6 @@ message SendResponse {
     bytes payload = 2;
 }
 
-service Bridge {
+service Channel {
     rpc Call(CallRequest) returns (CallResponse) {}
 } 

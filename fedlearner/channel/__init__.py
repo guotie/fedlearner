@@ -14,4 +14,4 @@
 
 # -*- coding: utf-8 -*-
 
-from fedlearner.bridge.bridge import Bridge
+from fedlearner.channel.channel import Channel
