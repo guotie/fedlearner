@@ -24,6 +24,7 @@ from fedlearner_webconsole.utils.es import es
 from fedlearner_webconsole.exceptions import (
     NotFoundException, InternalException
 )
+import prison
 from fedlearner_webconsole.k8s_client import get_client
 from fedlearner_webconsole.rpc.client import RpcClient
 
