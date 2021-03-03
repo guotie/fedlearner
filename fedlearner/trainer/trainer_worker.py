@@ -156,21 +156,9 @@ def train(role, args, input_fn, model_fn, serving_input_receiver_fn):
         bridge = Bridge(role, int(args.local_addr.split(':')[1]),
                         args.peer_addr)
 
-    if args.data_path:
-        trainer_master = LocalTrainerMasterClient(role,
-                                                  args.data_path,
-                                                  epoch_num=args.epoch_num)
-        if args.ps_addrs is not None:
-            ps_addrs = args.ps_addrs.split(",")
-            cluster_spec = tf.train.ClusterSpec({
-                'ps': ps_addrs,
-                'worker': {
-                    args.worker_rank: args.tf_addr
-                }
-            })
-        else:
-            cluster_spec = None
-    elif args.cluster_spec:
+    trainer_master = None
+    cluster_spec = None
+    if args.cluster_spec:
         cluster_spec = json.loads(args.cluster_spec)
         assert 'clusterSpec' in cluster_spec, \
             "cluster_spec do not meet legal format"
@@ -203,6 +191,21 @@ def train(role, args, input_fn, model_fn, serving_input_receiver_fn):
                 args.worker_rank: args.tf_addr
             }
         })
+
+    if args.data_path:
+        trainer_master = LocalTrainerMasterClient(role,
+                                                  args.data_path,
+                                                  epoch_num=args.epoch_num)
+        if args.ps_addrs is not None:
+            ps_addrs = args.ps_addrs.split(",")
+            cluster_spec = tf.train.ClusterSpec({
+                'ps': ps_addrs,
+                'worker': {
+                    args.worker_rank: args.tf_addr
+                }
+            })
+        else:
+            cluster_spec = None
     elif args.data_source:
         if args.start_time is None or args.end_time is None:
             raise ValueError(
@@ -212,8 +215,33 @@ def train(role, args, input_fn, model_fn, serving_input_receiver_fn):
                                                   start_time=args.start_time,
                                                   end_time=args.end_time,
                                                   epoch_num=args.epoch_num)
-        cluster_spec = None
-    else:
+        if args.ps_addrs is not None:
+            ps_addrs = args.ps_addrs.split(",")
+            cluster_spec = tf.train.ClusterSpec({
+                'ps': ps_addrs,
+                'worker': {
+                    args.worker_rank: args.tf_addr
+                }
+            })
+        else:
+            cluster_spec = None
+
+    local_trainers = {}
+    if hasattr(args, 'data_path_dict') and args.data_path_dict:
+        for key, data_path in args.data_path_dict.items():
+            local_trainers[key] = \
+                LocalTrainerMasterClient("leader", data_path,
+                                         epoch_num=args.epoch_num)
+    elif hasattr(args, 'data_source_dict') and args.data_source_dict:
+        for key, data_source in args.data_source_dict.items():
+            local_trainers[key] = LocalTrainerMasterClient("leader",
+                                                           data_source,
+                                                           from_data_source=True,
+                                                           start_time=args.start_time,
+                                                           end_time=args.end_time,
+                                                           epoch_num=args.epoch_num)
+
+    if not trainer_master:
         raise ValueError("Either --master-addr or --data-path must be set")
 
     if args.summary_path:
@@ -235,6 +263,7 @@ def train(role, args, input_fn, model_fn, serving_input_receiver_fn):
         estimator = FLEstimator(model_fn,
                                 bridge,
                                 trainer_master,
+                                local_trainers,
                                 role,
                                 worker_rank=args.worker_rank,
                                 application_id=args.application_id,
