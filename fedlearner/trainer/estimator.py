@@ -292,7 +292,6 @@ class FLEstimator(object):
                     save_checkpoint_steps=save_checkpoint_steps,
                     save_checkpoint_secs=save_checkpoint_secs,
                     hooks=spec.training_hooks) as sess:
-                    iter_id = 0
 
                     data_checkpoint_value = None
                     if hasattr(saver_hook, "data_checkpoint"):
@@ -301,19 +300,23 @@ class FLEstimator(object):
                         raise ValueError("Restore data checkpoint error")
 
                     while not sess.should_stop():
-                        self._bridge.start(iter_id)
+                        self._bridge.start(self._bridge.new_iter_id())
                         logging.debug('after bridge start.')
                         start_time = time.time()
-                        sess.run(spec.train_op, feed_dict={})
-                        end_time = time.time()
-                        metrics.emit_timer(
-                            name="iter_timer",
-                            value=end_time-start_time,
-                            tags={})
-                        logging.debug('after session run.')
-                        self._bridge.commit()
-                        logging.debug('after bridge commit.')
-                        iter_id += 1
+                        try:
+                            sess.run(spec.train_op, feed_dict={})
+                        finally:
+                            end_time = time.time()
+                            metrics.emit_timer(
+                                name="iter_timer",
+                                value=end_time-start_time,
+                                tags={})
+                            logging.debug('after session run.')
+                            self._bridge.commit()
+                            logging.debug('after bridge commit.')
+            except Exception as e:
+                logging.fatal("Occor error when session run: %s", repr(e))
+                raise e
             finally:
                 self._bridge.terminate()
 
@@ -369,27 +372,31 @@ class FLEstimator(object):
                     session_creator=session_creator, hooks=all_hooks) as sess:
                     if not self._restore_datablock(DATA_CHECKPOINT_INIT_VALUE):
                         raise ValueError("Restore data checkpoint error")
-                    iter_id = 0
                     while not sess.should_stop():
-                        self._bridge.start(iter_id)
+                        self._bridge.start(self._bridge.new_iter_id())
                         logging.debug('after bridge start.')
                         start_time = time.time()
-                        sess.run(eval_op)
-                        end_time = time.time()
-                        metrics.emit_timer(
-                            name="iter_timer",
-                            value=end_time-start_time,
-                            tags={})
-                        logging.debug('after session run.')
-                        self._bridge.commit()
-                        logging.debug('after bridge commit.')
-                        iter_id += 1
+                        try:
+                            sess.run(eval_op)
+                        finally:
+                            end_time = time.time()
+                            metrics.emit_timer(
+                                name="iter_timer",
+                                value=end_time-start_time,
+                                tags={})
+                            logging.debug('after session run.')
+                            self._bridge.commit()
+                            logging.debug('after bridge commit.')
+            except Exception as e:
+                logging.fatal("Occor error when session run: %s", repr(e))
+                raise e
             finally:
                 self._bridge.terminate()
 
             # Print result
             logging.info('Metrics for iteration %d: %s',
-                iter_id, _dict_to_str(final_ops_hook.final_ops_values))
+                self._bridge.next_iter_id-1,
+                _dict_to_str(final_ops_hook.final_ops_values))
             return final_ops_hook.final_ops_values
 
     def export_saved_model(self,
