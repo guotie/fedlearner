@@ -12,21 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # coding: utf-8
-import time
 import json
+import time
+from datetime import datetime
 
+import prison
 from flask_restful import Resource, reqparse
-from fedlearner_webconsole.proto import common_pb2
-from fedlearner_webconsole.job.models import Job
-from fedlearner_webconsole.job.metrics import JobMetricsBuilder
-from fedlearner_webconsole.workflow.models import Workflow
-from fedlearner_webconsole.utils.es import es
+
+from config import Config
 from fedlearner_webconsole.exceptions import (
     NotFoundException, InternalException
 )
-import prison
+from fedlearner_webconsole.job.metrics import JobMetricsBuilder, KibanaUtils
+from fedlearner_webconsole.job.models import Job
 from fedlearner_webconsole.k8s_client import get_client
+from fedlearner_webconsole.proto import common_pb2
 from fedlearner_webconsole.rpc.client import RpcClient
+from fedlearner_webconsole.utils.es import es
+from fedlearner_webconsole.workflow.models import Workflow
 
 
 class JobApi(Resource):
@@ -85,6 +88,7 @@ class PodContainerApi(Resource):
                                                 pod_name,
                                                 'tensorflow')
         return {'data': {'id': container_id, 'base': base}}
+
 
 class JobMetricsApi(Resource):
     def get(self, job_id):
@@ -164,14 +168,15 @@ class KibanaMetricsApi(Resource):
                             help='Name of metric should be provided.')
         args = parser.parse_args()
         # get corresponding create method and call it with (job, args)
-        vis_state = getattr(kibana, 'create_{}_visualization'
-                                    .format(args['type'].lower()))(job, args)
+        vis_state = getattr(KibanaUtils,
+                            'create_{}_visualization'
+                            .format(args['type'].lower()))(job, args)
         # addition global filter on data if provided.
         if args['query'] is not None and args['query'] != '':
             vis_state['params']['filter']['query'] += \
                 ' and ({})'.format(args['query'])
         rison_str = prison.dumps(vis_state)
-        suffix = kibana.rison_postprocess(rison_str)
+        suffix = KibanaUtils.rison_postprocess(rison_str)
         if args['start_time'] < 0:
             start_time = 'now-5y'
         else:
