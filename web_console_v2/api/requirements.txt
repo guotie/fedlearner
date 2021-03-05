@@ -22,3 +22,4 @@ tensorflow==1.15.2
 pyopenssl
 pylint==2.4.4
 mpld3
+prison==0.1.3
