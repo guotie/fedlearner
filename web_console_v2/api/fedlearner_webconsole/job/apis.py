@@ -215,8 +215,6 @@ def initialize_job_apis(api):
                      '/jobs/<int:job_id>/metrics')
     api.add_resource(PodContainerApi,
                      '/jobs/<int:job_id>/pods/<string:pod_name>/container')
-    api.add_resource(JobMetricsApi,
-                     '/jobs/<int:job_id>/metrics')
     api.add_resource(PeerJobMetricsApi,
                      '/workflows/<int:workflow_id>/peer_workflows'
                      '/<int:participant_id>/jobs/<string:job_name>/metrics')
