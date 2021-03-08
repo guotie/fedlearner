@@ -205,7 +205,12 @@ class ElasticSearchClient(object):
                     "must": [
                         {
                             "term": {
-                                "tags.application_id.keyword": job_name
+                                "tags.application_id": job_name
+                            }
+                        },
+                        {
+                            "term": {
+                                "name": "auc"
                             }
                         }
                     ]
@@ -220,22 +225,60 @@ class ElasticSearchClient(object):
                     },
                     "aggs": {
                         "AUC": {
-                            "filter": {
-                                "term": {"name": "auc"}
-                            },
-                            "aggs": {
-                                "AUC": {
-                                    "avg": {
-                                        "field": "value"
-                                    }
-                                }
+                            "avg": {
+                                "field": "value"
                             }
-                        },
+                        }
                     }
                 }
             }
         }
 
         return es.search(index='metrics*', body=query)
+
+    def query_raw_data_metrics(self, job_name, num_buckets):
+        query = {
+            "size": 0,
+            "query": {
+                "bool": {
+                    "must": [
+                        {
+                            "term": {
+                                "application_id": job_name
+                            }
+                        },
+                        {
+                            "term": {
+                                "partition": 1
+                            }
+                        }
+                    ]
+                }
+            },
+            "aggs": {
+                "PROCESS_TIME": {
+                    "auto_date_histogram": {
+                        "field": "process_time",
+                        "format": "strict_date_optional_time",
+                        "buckets": num_buckets
+                    },
+                    "aggs": {
+                        "MAX_EVENT_TIME": {
+                            "max": {
+                                "field": "event_time"
+                            }
+                        },
+                        "MIN_EVENT_TIME": {
+                            "min": {
+                                "field": "event_time"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return es.search(index='raw_data*', body=query)
+
 
 es = ElasticSearchClient()
