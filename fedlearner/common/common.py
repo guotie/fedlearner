@@ -161,7 +161,7 @@ def get_es_template(index_type, es_version):
                     }
                 },
                 "refresh_interval": "60s",
-                "number_of_shards": "2",
+                "number_of_shards": "1",
                 "number_of_replicas": "1",
             }
         }
