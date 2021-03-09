@@ -21,7 +21,8 @@ class MetricStats:
             tags['example_id'] = self.convert_to_str(item.example_id)
             tags['event_time'] = convert_to_iso_format(item.event_time)
             tags['process_time'] = convert_to_iso_format(datetime.now())
-            metrics.emit_store(name='input_data', value=0, tags=tags)
+            metrics.emit_store(name='input_data', value=0, tags=tags,
+                               index_type='raw_data')
 
     @staticmethod
     def convert_to_str(value):
