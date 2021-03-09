@@ -24,6 +24,7 @@ from functools import wraps
 
 import elasticsearch as es7
 import elasticsearch6 as es6
+import pytz
 from elasticsearch import helpers as helpers7
 from elasticsearch6 import helpers as helpers6
 
@@ -124,7 +125,9 @@ class ElasticSearchHandler(Handler):
                 "value": value,
                 "tags": tags,
                 # convert to UTC+8
-                "date_time": convert_to_iso_format(datetime.datetime.now())
+                "date_time": convert_to_iso_format(
+                    datetime.datetime.now(tz=pytz.utc)
+                )
             }
         else:
             document = tags
