@@ -14,10 +14,8 @@
 # coding: utf-8
 import json
 import time
-from datetime import datetime
 
 from flask_restful import Resource, reqparse
-import prison
 
 from fedlearner_webconsole.exceptions import (
     NotFoundException, InternalException
@@ -125,6 +123,7 @@ class PeerJobMetricsApi(Resource):
 class KibanaMetricsApi(Resource):
     TSVB = ('Rate', 'Ratio', 'Numeric')
     TIMELION = ('Time',)
+
     def get(self, job_id):
         job = Job.query.filter_by(id=job_id).first()
         parser = reqparse.RequestParser()
@@ -144,11 +143,11 @@ class KibanaMetricsApi(Resource):
         parser.add_argument('start_time', type=int, location='args',
                             default=-1,
                             help='Earliest <x_axis_field> time of data.'
-                                 'Unix timestamp in UTC timezone.')
+                                 'Unix timestamp.')
         parser.add_argument('end_time', type=int, location='args',
                             default=-1,
                             help='Latest <x_axis_field> time of data.'
-                                 'Unix timestamp in UTC timezone.')
+                                 'Unix timestamp.')
         # (Joined) Rate visualization is fixed and only interval, query and
         # x_axis_field can be modified
         # Ratio visualization
@@ -168,8 +167,6 @@ class KibanaMetricsApi(Resource):
         parser.add_argument('value_field', type=str, location='args',
                             help='The field to be aggregated on is required '
                                  'in Numeric visualization.')
-        parser.add_argument('metric_name', type=str, locations='args',
-                            help='Name of metric should be provided.')
         args = parser.parse_args()
         if args['type'] in KibanaMetricsApi.TSVB:
             iframe_src_list = KibanaUtils.create_tsvb(job, args)
