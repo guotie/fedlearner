@@ -78,8 +78,7 @@ class Bridge(object):
         # transmit stream queue
         self._stream_queue = collections.deque()
         self._stream_queue_size = stream_queue_size
-        self._stream_thread = threading.Thread(
-            target=self._stream_fn, daemon=True)
+        self._stream_thread = None
 
         # channel
         self._channel = Channel(
@@ -128,7 +127,9 @@ class Bridge(object):
                 return
             self._started = True
             self._channel.connect()
-            self._stream_thread.start()
+        self._stream_transmit_thread = threading.Thread(
+            target=self._stream_transmit_fn, daemon=True)
+        self._stream_transmit_thread.start()
 
     def terminate(self):
         with self._condition:
@@ -138,24 +139,43 @@ class Bridge(object):
                 return
             self._terminated = True
             self._condition.notify_all()
-        self._stream_thread.join()
+        self._stream_transmit_thread.join()
         self._channel.close()
 
-    def _stream_fn(self):
-        stream_response = self._client.StreamTransmit(self._stream_generator())
-        for _ in stream_response:
-            pass
+    def _stream_transmit_fn(self):
+        IDLE_TIMEOUT = 30
+        logging.debug("[Bridge] stream transmit started")
 
-    def _stream_generator(self):
+        def request_iterator():
+            logging.debug("[Bridge] stream transmitting")
+            while True:
+                with self._condition:
+                    if len(self._stream_queue) == 0:
+                        start = time.time()
+                        while len(self._stream_queue) == 0:
+                            duration = time.time() - start
+                            if self._terminated:
+                                return
+                            if duration >= IDLE_TIMEOUT:
+                                logging.debug("[Bridge] stream transmit idle"
+                                    " by idle timeout: %f sec", IDLE_TIMEOUT)
+                                return
+                            self._condition.wait(IDLE_TIMEOUT-duration)
+                    msg = self._stream_queue.popleft()
+                    self._condition.notify_all()
+                yield msg
+
         while True:
             with self._condition:
                 while len(self._stream_queue) == 0:
                     if self._terminated:
+                        logging.debug("[Bridge] stream transmit closed")
                         return
                     self._condition.wait()
-                msg = self._stream_queue.popleft()
-                self._condition.notify_all()
-            yield msg
+            response_iterator = \
+                self._client.StreamTransmit(request_iterator())
+            for _ in response_iterator:
+                pass
 
     def _transmit(self, msg):
         with self._condition:
